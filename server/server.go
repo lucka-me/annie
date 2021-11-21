@@ -13,11 +13,11 @@ import (
 )
 
 type Task struct {
-	Url          string  `json:"url"`
-	Cookie       string  `json:"cookie"`
-	StreamFormat string  `json:"stream-format"`
-	Status       string  `json:"status"`
-	Errors       []error `json:"errors"`
+	Url          string   `json:"url"`
+	Cookie       string   `json:"cookie"`
+	StreamFormat string   `json:"stream-format"`
+	Status       string   `json:"status"`
+	Errors       []string `json:"errors"`
 }
 
 type Server struct {
@@ -112,7 +112,7 @@ func (s *Server) download(t Task) {
 		Cookie: t.Cookie,
 	})
 	if err != nil {
-		t.Errors = append(t.Errors, err)
+		t.Errors = append(t.Errors, err.Error())
 		t.Status = "Failed"
 		return
 	}
@@ -123,7 +123,7 @@ func (s *Server) download(t Task) {
 	})
 	for _, item := range data {
 		if item.Err != nil {
-			t.Errors = append(t.Errors, err)
+			t.Errors = append(t.Errors, err.Error())
 			continue
 		}
 		d.Download(item)
