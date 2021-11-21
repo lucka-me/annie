@@ -8,6 +8,7 @@ require (
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/fatih/color v1.10.0
+	github.com/gin-gonic/gin v1.7.4
 	github.com/go-rod/rod v0.101.0
 	github.com/json-iterator/go v1.1.11
 	github.com/kkdai/youtube/v2 v2.7.2

@@ -18,6 +18,7 @@ import (
 	"github.com/iawia002/annie/extractors"
 	"github.com/iawia002/annie/extractors/types"
 	"github.com/iawia002/annie/request"
+	"github.com/iawia002/annie/server"
 	"github.com/iawia002/annie/utils"
 )
 
@@ -187,68 +188,29 @@ func main() {
 				Aliases: []string{"eto"},
 				Usage:   "File name of each bilibili episode doesn't include the playlist title",
 			},
+
+			// Server
+			&cli.BoolFlag{
+				Name:  "server",
+				Usage: "Run as a web server",
+			},
+			&cli.StringFlag{
+				Name:  "port",
+				Usage: "Port to listen for web server",
+			},
+			&cli.StringFlag{
+				Name:  "token",
+				Usage: "Token for requests to web server",
+			},
 		},
 		Action: func(c *cli.Context) error {
-			args := c.Args().Slice()
-
 			if c.Bool("debug") {
 				cli.VersionPrinter(c)
 			}
-
-			if file := c.String("file"); file != "" {
-				f, err := os.Open(file)
-				if err != nil {
-					return err
-				}
-				defer f.Close() // nolint
-
-				fileItems := utils.ParseInputFile(f, c.String("items"), int(c.Uint("start")), int(c.Uint("end")))
-				args = append(args, fileItems...)
-			}
-
-			if len(args) < 1 {
-				return errors.New("too few arguments")
-			}
-
-			cookie := c.String("cookie")
-			if cookie != "" {
-				// If cookie is a file path, convert it to a string to ensure cookie is always string
-				if _, fileErr := os.Stat(cookie); fileErr == nil {
-					// Cookie is a file
-					data, err := ioutil.ReadFile(cookie)
-					if err != nil {
-						return err
-					}
-					cookie = strings.TrimSpace(string(data))
-				}
+			if c.Bool("server") {
+				server.New(c).Run()
 			} else {
-				// Try to use current user's cookie if possible, if failed empty cookie will be used
-				_ = rod.Try(func() {
-					cookie = cookier.Get(args...)
-				})
-			}
-
-			request.SetOptions(request.Options{
-				RetryTimes: int(c.Uint("retry")),
-				Cookie:     cookie,
-				Refer:      c.String("refer"),
-				Debug:      c.Bool("debug"),
-				Silent:     c.Bool("silent"),
-			})
-
-			var isErr bool
-			for _, videoURL := range args {
-				if err := download(c, videoURL); err != nil {
-					fmt.Fprintf(
-						color.Output,
-						"Downloading %s error:\n%s\n",
-						color.CyanString("%s", videoURL), color.RedString("%v", err),
-					)
-					isErr = true
-				}
-			}
-			if isErr {
-				return cli.Exit("", 1)
+				runOnce(c)
 			}
 			return nil
 		},
@@ -266,6 +228,67 @@ func main() {
 		)
 		os.Exit(1)
 	}
+}
+
+func runOnce(c *cli.Context) error {
+	args := c.Args().Slice()
+
+	if file := c.String("file"); file != "" {
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close() // nolint
+
+		fileItems := utils.ParseInputFile(f, c.String("items"), int(c.Uint("start")), int(c.Uint("end")))
+		args = append(args, fileItems...)
+	}
+
+	if len(args) < 1 {
+		return errors.New("too few arguments")
+	}
+
+	cookie := c.String("cookie")
+	if cookie != "" {
+		// If cookie is a file path, convert it to a string to ensure cookie is always string
+		if _, fileErr := os.Stat(cookie); fileErr == nil {
+			// Cookie is a file
+			data, err := ioutil.ReadFile(cookie)
+			if err != nil {
+				return err
+			}
+			cookie = strings.TrimSpace(string(data))
+		}
+	} else {
+		// Try to use current user's cookie if possible, if failed empty cookie will be used
+		_ = rod.Try(func() {
+			cookie = cookier.Get(args...)
+		})
+	}
+
+	request.SetOptions(request.Options{
+		RetryTimes: int(c.Uint("retry")),
+		Cookie:     cookie,
+		Refer:      c.String("refer"),
+		Debug:      c.Bool("debug"),
+		Silent:     c.Bool("silent"),
+	})
+
+	var isErr bool
+	for _, videoURL := range args {
+		if err := download(c, videoURL); err != nil {
+			fmt.Fprintf(
+				color.Output,
+				"Downloading %s error:\n%s\n",
+				color.CyanString("%s", videoURL), color.RedString("%v", err),
+			)
+			isErr = true
+		}
+	}
+	if isErr {
+		return cli.Exit("", 1)
+	}
+	return nil
 }
 
 func download(c *cli.Context, videoURL string) error {
