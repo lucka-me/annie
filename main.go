@@ -195,6 +195,10 @@ func main() {
 				Usage: "Run as a web server",
 			},
 			&cli.StringFlag{
+				Name:  "host",
+				Usage: "Host to listen for web server",
+			},
+			&cli.StringFlag{
 				Name:  "port",
 				Usage: "Port to listen for web server",
 			},

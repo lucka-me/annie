@@ -20,6 +20,7 @@ type Task struct {
 
 type Server struct {
 	outputPath string
+	host       string
 	port       string
 	token      string
 
@@ -27,9 +28,16 @@ type Server struct {
 }
 
 func New(c *cli.Context) *Server {
+	host := c.String("host")
+	if host == "" {
+		host = os.Getenv("ANNIE_HOST")
+	}
+	if host == "" {
+		host = "localhost"
+	}
 	port := c.String("port")
 	if port == "" {
-		port = os.Getenv("PORT")
+		port = os.Getenv("ANNIE_PORT")
 	}
 	if port == "" {
 		port = "8080"
@@ -40,6 +48,7 @@ func New(c *cli.Context) *Server {
 	}
 	server := &Server{
 		outputPath: c.String("output-path"),
+		host:       host,
 		port:       port,
 		token:      token,
 		tasks:      list.New(),
@@ -51,7 +60,7 @@ func (s *Server) Run() {
 	router := gin.Default()
 	router.POST("/download", s.postDownload)
 	router.GET("/tasks", s.getTasks)
-	router.Run("localhost:" + s.port)
+	router.Run(s.host + ":" + s.port)
 }
 
 func (s *Server) postDownload(c *gin.Context) {
