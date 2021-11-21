@@ -32,9 +32,6 @@ func New(c *cli.Context) *Server {
 	if host == "" {
 		host = os.Getenv("ANNIE_HOST")
 	}
-	if host == "" {
-		host = "localhost"
-	}
 	port := c.String("port")
 	if port == "" {
 		port = os.Getenv("ANNIE_PORT")
@@ -103,6 +100,9 @@ func (s *Server) download(t *Task) {
 		Stream:     t.StreamFormat,
 	})
 	for _, item := range data {
+		if item.Err != nil {
+			continue
+		}
 		d.Download(item)
 	}
 }
