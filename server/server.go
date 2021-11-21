@@ -123,7 +123,7 @@ func (s *Server) download(t Task) {
 	})
 	for _, item := range data {
 		if item.Err != nil {
-			t.Errors = append(t.Errors, err.Error())
+			t.Errors = append(t.Errors, item.Err.Error())
 			continue
 		}
 		d.Download(item)
