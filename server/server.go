@@ -79,6 +79,7 @@ func (s *Server) Run() {
 func (s *Server) postDownload(c *gin.Context) {
 	if c.Query("token") != s.token {
 		c.Status(http.StatusForbidden)
+		return
 	}
 
 	var task Task
@@ -94,6 +95,7 @@ func (s *Server) postDownload(c *gin.Context) {
 func (s *Server) getTasks(c *gin.Context) {
 	if c.Query("token") != s.token {
 		c.Status(http.StatusForbidden)
+		return
 	}
 
 	tasks := []Task{}
@@ -106,6 +108,7 @@ func (s *Server) getTasks(c *gin.Context) {
 func (s *Server) getHistory(c *gin.Context) {
 	if c.Query("token") != s.token {
 		c.Status(http.StatusForbidden)
+		return
 	}
 
 	tasks := []Task{}
