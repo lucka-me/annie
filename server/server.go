@@ -9,28 +9,40 @@ import (
 	"github.com/iawia002/annie/downloader"
 	"github.com/iawia002/annie/extractors"
 	"github.com/iawia002/annie/extractors/types"
+	"github.com/iawia002/annie/request"
 	"github.com/urfave/cli/v2"
 )
 
 type Task struct {
-	Url          string   `json:"url"`
-	Cookie       string   `json:"cookie"`
-	StreamFormat string   `json:"stream-format"`
-	Status       string   `json:"status"`
-	Errors       []string `json:"errors"`
+	Url string `json:"url"`
+
+	Cookie       string `json:"cookie"`
+	StreamFormat string `json:"stream-format"`
+	Caption      bool   `json:"caption"`
+
+	Status string   `json:"status"`
+	Errors []string `json:"errors"`
 }
 
 type Server struct {
-	outputPath string
-	host       string
-	port       string
-	token      string
+	chunkSizeMB int
+	multiThread bool
+	outputPath  string
+	retryTimes  int
+
+	host  string
+	port  string
+	token string
 
 	tasks   *list.List // *Task
 	history *list.List // Task
 }
 
 func New(c *cli.Context) *Server {
+	request.SetOptions(request.Options{
+		Debug:  c.Bool("debug"),
+		Silent: c.Bool("silent"),
+	})
 	host := c.String("host")
 	if host == "" {
 		host = os.Getenv("ANNIE_HOST")
@@ -47,12 +59,17 @@ func New(c *cli.Context) *Server {
 		token = os.Getenv("TOKEN")
 	}
 	server := &Server{
-		outputPath: c.String("output-path"),
-		host:       host,
-		port:       port,
-		token:      token,
-		tasks:      list.New(),
-		history:    list.New(),
+		chunkSizeMB: int(c.Uint("chunk-size")),
+		multiThread: c.Bool("multi-thread"),
+		outputPath:  c.String("output-path"),
+		retryTimes:  int(c.Uint("retry")),
+
+		host:  host,
+		port:  port,
+		token: token,
+
+		tasks:   list.New(),
+		history: list.New(),
 	}
 	return server
 }
@@ -118,15 +135,20 @@ func (s *Server) download(t Task) {
 	}
 	t.Status = "Downloading"
 	d := downloader.New(downloader.Options{
-		OutputPath: s.outputPath,
-		Stream:     t.StreamFormat,
+		Caption:     t.Caption,
+		MultiThread: s.multiThread,
+		OutputPath:  s.outputPath,
+		RetryTimes:  s.retryTimes,
+		Stream:      t.StreamFormat,
 	})
 	for _, item := range data {
 		if item.Err != nil {
 			t.Errors = append(t.Errors, item.Err.Error())
 			continue
 		}
-		d.Download(item)
+		if err := d.Download(item); err != nil {
+			t.Errors = append(t.Errors, err.Error())
+		}
 	}
 	t.Status = "Done"
 }
