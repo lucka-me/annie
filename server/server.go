@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iawia002/annie/downloader"
@@ -25,10 +26,11 @@ type Task struct {
 }
 
 type Server struct {
-	chunkSizeMB int
+	chunkSizeMB uint
+	debug       bool
 	multiThread bool
 	outputPath  string
-	retryTimes  int
+	retryTimes  uint
 
 	host  string
 	port  string
@@ -39,34 +41,21 @@ type Server struct {
 }
 
 func New(c *cli.Context) *Server {
+	enableDebug := boolFrom(c, "debug", "ANNIE_DEBUG")
 	request.SetOptions(request.Options{
-		Debug:  c.Bool("debug"),
-		Silent: c.Bool("silent"),
+		Debug:  enableDebug,
+		Silent: boolFrom(c, "silent", "ANNIE_SILENT"),
 	})
-	host := c.String("host")
-	if host == "" {
-		host = os.Getenv("ANNIE_HOST")
-	}
-	port := c.String("port")
-	if port == "" {
-		port = os.Getenv("ANNIE_PORT")
-	}
-	if port == "" {
-		port = "8080"
-	}
-	token := c.String("token")
-	if token == "" {
-		token = os.Getenv("TOKEN")
-	}
 	server := &Server{
-		chunkSizeMB: int(c.Uint("chunk-size")),
-		multiThread: c.Bool("multi-thread"),
-		outputPath:  c.String("output-path"),
-		retryTimes:  int(c.Uint("retry")),
+		chunkSizeMB: uintFrom(c, "chunk-size", "ANNIE_CHUNK_SIZE"),
+		debug:       enableDebug,
+		multiThread: boolFrom(c, "multi-thread", "ANNIE_MULTI_THREAD"),
+		outputPath:  stringFrom(c, "output-path", "ANNIE_OUTPUT_PATH", ""),
+		retryTimes:  uintFrom(c, "retry", "ANNIE_RETRY"),
 
-		host:  host,
-		port:  port,
-		token: token,
+		host:  stringFrom(c, "host", "ANNIE_HOST", ""),
+		port:  stringFrom(c, "port", "ANNIE_PORT", "8080"),
+		token: stringFrom(c, "token", "ANNIE_TOKEN", ""),
 
 		tasks:   list.New(),
 		history: list.New(),
@@ -75,6 +64,11 @@ func New(c *cli.Context) *Server {
 }
 
 func (s *Server) Run() {
+	if s.debug {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	router := gin.Default()
 	router.POST("/download", s.postDownload)
 	router.GET("/tasks", s.getTasks)
@@ -136,9 +130,10 @@ func (s *Server) download(t Task) {
 	t.Status = "Downloading"
 	d := downloader.New(downloader.Options{
 		Caption:     t.Caption,
+		ChunkSizeMB: int(s.chunkSizeMB),
 		MultiThread: s.multiThread,
 		OutputPath:  s.outputPath,
-		RetryTimes:  s.retryTimes,
+		RetryTimes:  int(s.retryTimes),
 		Stream:      t.StreamFormat,
 	})
 	for _, item := range data {
@@ -159,4 +154,36 @@ func (s *Server) finish(e *list.Element) {
 		s.history.Remove(s.history.Front())
 	}
 	s.history.PushBack(*e.Value.(*Task))
+}
+
+func boolFrom(c *cli.Context, flag string, env string) bool {
+	value := c.Bool(flag)
+	if !value {
+		_, envSet := os.LookupEnv(env)
+		value = envSet
+	}
+	return value
+}
+
+func stringFrom(c *cli.Context, flag string, env string, def string) string {
+	value := c.String(flag)
+	if value == "" {
+		value = os.Getenv(env)
+	}
+	if value == "" {
+		value = def
+	}
+	return value
+}
+
+func uintFrom(c *cli.Context, flag string, env string) uint {
+	value := c.Uint(flag)
+	if value == 0 {
+		if envValue, envSet := os.LookupEnv(env); envSet {
+			if intValue, err := strconv.Atoi(envValue); err != nil {
+				value = uint(intValue)
+			}
+		}
+	}
+	return value
 }
