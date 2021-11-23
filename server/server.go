@@ -17,9 +17,10 @@ import (
 type Task struct {
 	Url string `json:"url"`
 
-	Cookie       string `json:"cookie"`
-	StreamFormat string `json:"stream-format"`
 	Caption      bool   `json:"caption"`
+	Cookie       string `json:"cookie"`
+	Refer        string `json:"refer"`
+	StreamFormat string `json:"stream-format"`
 
 	Status string   `json:"status"`
 	Errors []string `json:"errors"`
@@ -136,19 +137,32 @@ func (s *Server) download(t Task) {
 		ChunkSizeMB: int(s.chunkSizeMB),
 		MultiThread: s.multiThread,
 		OutputPath:  s.outputPath,
+		Refer:       t.Refer,
 		RetryTimes:  int(s.retryTimes),
 		Stream:      t.StreamFormat,
 	})
+	failureCount := 0
+	successCount := 0
 	for _, item := range data {
 		if item.Err != nil {
 			t.Errors = append(t.Errors, item.Err.Error())
+			failureCount += 1
 			continue
 		}
 		if err := d.Download(item); err != nil {
 			t.Errors = append(t.Errors, err.Error())
+			failureCount += 1
+		} else {
+			successCount += 1
 		}
 	}
-	t.Status = "Done"
+	if failureCount == 0 {
+		t.Status = "Done"
+	} else if successCount == 0 {
+		t.Status = "Failed"
+	} else {
+		t.Status = "PartlyDone"
+	}
 }
 
 func (s *Server) finish(e *list.Element) {
