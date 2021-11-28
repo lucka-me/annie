@@ -48,6 +48,9 @@
   - [Specify the output path and name](#specify-the-output-path-and-name)
   - [Debug Mode](#debug-mode)
   - [Reuse extracted data](#reuse-extracted-data)
+  - [RESTful API](#restful-api)
+    - [APIs](#apis)
+    - [Environments](#environments)
   - [Options](#options)
     - [Download:](#download)
     - [Network:](#network)
@@ -56,6 +59,7 @@
     - [Subtitle:](#subtitle)
     - [Youku:](#youku)
     - [aria2:](#aria2)
+    - [Server Mode:](#server-mode)
 - [Supported Sites](#supported-sites)
 - [Known issues](#known-issues)
   - [优酷](#优酷)
@@ -503,6 +507,72 @@ $ annie -j "https://www.bilibili.com/video/av20203945"
 }
 ```
 
+### RESTful API
+
+Run annie in server mode with `--server` option:
+
+```console
+$ annie --server --host "0.0.0.0" --port "8080" # Both host and port are default values
+```
+
+Then start download by calling the RESTful API in `/download`:
+
+```console
+$ curl 'http://localhost:8000/download' \
+  --include \
+  --header "Content-Type: application/json" \
+  --request "POST" \
+  --data '{ "url": "https://www.bilibili.com/video/BV1tU4y1T78m" }'
+```
+
+The tasks in processing could be retrived from `/tasks`, and the latest 10 finished tasks could be retrived from `/history`.
+
+Guard the server with `--token` option:
+
+```console
+$ annie --server --token "my-secret"
+```
+
+```console
+$ curl 'http://localhost:8080/tasks?token=my-secret' # Returns the list
+$ curl 'http://localhost:8080/tasks' # Error 403
+```
+
+#### APIs
+
+- `/download`: `POST`  
+  Start a new download task, supported request contents are:
+  - `url`: Required, string  
+    The url to download
+  - `caption`: Optional, boolean  
+    Same as `--caption` / `-C` option
+  - `cookie`: Optional, string  
+    Same as `--cookie` / `-c` option, filename is not supported yet
+  - `refer`: Optional, string  
+    Same as `--refer` / `-r` option
+  - `stream-format`: Optional, string  
+    Same as `--stream-format` / `-f` option
+- `/tasks`: `GET`  
+  Get list of all tasks in processing
+- `/history`: `GET`  
+  Get latest 10 finished tasks
+
+#### Environments
+
+All options except `--server` are able to be set with environment variable:
+
+| Option          | Environment Variable  |
+| --------------- | --------------------- |
+| `host`          | `ANNIE_HOST`          |
+| `port`          | `ANNIE_PORT`          |
+| `token`         | `ANNIE_TOKEN`         |
+| `debug`         | `ANNIE_DEBUG`         |
+| `silent`        | `ANNIE_SILENT`        |
+| `chunk-size`    | `ANNIE_CHUNK_SIZE`    |
+| `multi-thread`  | `ANNIE_MULTI_THREAD`  |
+| `output-path`   | `ANNIE_OUTPUT_PATH`   |
+| `retry`         | `ANNIE_RETRY`         |
+
 ### Options
 
 ```
@@ -588,6 +658,17 @@ $ annie -j "https://www.bilibili.com/video/av20203945"
     	Aria2 Method (default "http")
   -aria2token string
     	Aria2 RPC Token
+```
+
+#### Server Mode
+
+```
+  -host
+    The host to listen (default empty, works the same as "0.0.0.0")
+  -port
+    The port to listen (default "8080")
+  -token
+    Token for request authentication
 ```
 
 
