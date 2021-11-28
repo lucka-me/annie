@@ -145,7 +145,7 @@ func (s *Server) download(t Task) {
 	successCount := 0
 	for _, item := range data {
 		if item.Err != nil {
-			asyncTask.appendError(err.Error())
+			asyncTask.appendError(item.Err.Error())
 			failureCount += 1
 			continue
 		}
