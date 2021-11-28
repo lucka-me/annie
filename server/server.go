@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iawia002/annie/downloader"
@@ -13,18 +14,6 @@ import (
 	"github.com/iawia002/annie/request"
 	"github.com/urfave/cli/v2"
 )
-
-type Task struct {
-	Url string `json:"url"`
-
-	Caption      bool   `json:"caption"`
-	Cookie       string `json:"cookie"`
-	Refer        string `json:"refer"`
-	StreamFormat string `json:"stream-format"`
-
-	Status string   `json:"status"`
-	Errors []string `json:"errors"`
-}
 
 type Server struct {
 	chunkSizeMB uint
@@ -37,8 +26,10 @@ type Server struct {
 	port  string
 	token string
 
-	tasks   *list.List // *Task
-	history *list.List // Task
+	tasksMutext   sync.RWMutex
+	tasks         list.List // *AyncTask
+	historyMutext sync.RWMutex
+	history       list.List // Task
 }
 
 func New(c *cli.Context) *Server {
@@ -57,9 +48,6 @@ func New(c *cli.Context) *Server {
 		host:  stringFrom(c, "host", "ANNIE_HOST", ""),
 		port:  stringFrom(c, "port", "ANNIE_PORT", "8080"),
 		token: stringFrom(c, "token", "ANNIE_TOKEN", ""),
-
-		tasks:   list.New(),
-		history: list.New(),
 	}
 	return server
 }
@@ -100,9 +88,14 @@ func (s *Server) getTasks(c *gin.Context) {
 	}
 
 	tasks := []Task{}
+	s.tasksMutext.RLock()
 	for e := s.tasks.Front(); e != nil; e = e.Next() {
-		tasks = append(tasks, *e.Value.(*Task))
+		asyncTask := e.Value.(*AsyncTask)
+		asyncTask.mutex.RLock()
+		tasks = append(tasks, asyncTask.task)
+		asyncTask.mutex.RUnlock()
 	}
+	s.tasksMutext.RUnlock()
 	c.IndentedJSON(http.StatusOK, tasks)
 }
 
@@ -113,25 +106,32 @@ func (s *Server) getHistory(c *gin.Context) {
 	}
 
 	tasks := []Task{}
+	s.historyMutext.RLock()
 	for e := s.history.Front(); e != nil; e = e.Next() {
 		tasks = append(tasks, e.Value.(Task))
 	}
+	s.historyMutext.RUnlock()
 	c.IndentedJSON(http.StatusOK, tasks)
 }
 
 func (s *Server) download(t Task) {
-	element := s.tasks.PushBack(&t)
+	s.tasksMutext.Lock()
+	asyncTask := AsyncTask{
+		task: t,
+	}
+	element := s.tasks.PushBack(&asyncTask)
+	s.tasksMutext.Unlock()
 	defer s.finish(element)
-	t.Status = "Extracting"
+	asyncTask.setStatus("Extracting")
 	data, err := extractors.Extract(t.Url, types.Options{
 		Cookie: t.Cookie,
 	})
 	if err != nil {
-		t.Errors = append(t.Errors, err.Error())
-		t.Status = "Failed"
+		asyncTask.appendError(err.Error())
+		asyncTask.setStatus("Failed")
 		return
 	}
-	t.Status = "Downloading"
+	asyncTask.setStatus("Downloading")
 	d := downloader.New(downloader.Options{
 		Caption:     t.Caption,
 		ChunkSizeMB: int(s.chunkSizeMB),
@@ -145,32 +145,36 @@ func (s *Server) download(t Task) {
 	successCount := 0
 	for _, item := range data {
 		if item.Err != nil {
-			t.Errors = append(t.Errors, item.Err.Error())
+			asyncTask.appendError(err.Error())
 			failureCount += 1
 			continue
 		}
 		if err := d.Download(item); err != nil {
-			t.Errors = append(t.Errors, err.Error())
+			asyncTask.appendError(err.Error())
 			failureCount += 1
 		} else {
 			successCount += 1
 		}
 	}
 	if failureCount == 0 {
-		t.Status = "Done"
+		asyncTask.setStatus("Done")
 	} else if successCount == 0 {
-		t.Status = "Failed"
+		asyncTask.setStatus("Failed")
 	} else {
-		t.Status = "PartlyDone"
+		asyncTask.setStatus("PartlyDone")
 	}
 }
 
 func (s *Server) finish(e *list.Element) {
+	s.tasksMutext.Lock()
 	s.tasks.Remove(e)
+	s.tasksMutext.Unlock()
+	s.historyMutext.Lock()
 	if s.history.Len() == 10 {
 		s.history.Remove(s.history.Front())
 	}
-	s.history.PushBack(*e.Value.(*Task))
+	s.history.PushBack(e.Value.(*AsyncTask).task)
+	s.historyMutext.Unlock()
 }
 
 func boolFrom(c *cli.Context, flag string, env string) bool {
