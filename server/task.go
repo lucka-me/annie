@@ -19,14 +19,14 @@ type AsyncTask struct {
 	mutex sync.RWMutex
 }
 
-func (t *AsyncTask) setStatus(s string) {
-	t.mutex.Lock()
-	t.task.Status = s
-	t.mutex.Unlock()
+func (at *AsyncTask) setStatus(s string) {
+	at.mutex.Lock()
+	at.task.Status = s
+	at.mutex.Unlock()
 }
 
-func (t *AsyncTask) appendError(e string) {
-	t.mutex.Lock()
-	t.task.Errors = append(t.task.Errors, e)
-	t.mutex.Unlock()
+func (at *AsyncTask) appendError(e string) {
+	at.mutex.Lock()
+	at.task.Errors = append(at.task.Errors, e)
+	at.mutex.Unlock()
 }

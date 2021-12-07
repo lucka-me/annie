@@ -49,8 +49,6 @@
   - [Debug Mode](#debug-mode)
   - [Reuse extracted data](#reuse-extracted-data)
   - [RESTful API](#restful-api)
-    - [APIs](#apis)
-    - [Environments](#environments)
   - [Options](#options)
     - [Download:](#download)
     - [Network:](#network)
@@ -538,8 +536,6 @@ $ curl 'http://localhost:8080/tasks?token=my-secret' # Returns the list
 $ curl 'http://localhost:8080/tasks' # Error 403
 ```
 
-#### APIs
-
 - `/download`: `POST`  
   Start a new download task, supported request contents are:
   - `url`: Required, string  
@@ -556,22 +552,6 @@ $ curl 'http://localhost:8080/tasks' # Error 403
   Get list of all tasks in processing
 - `/history`: `GET`  
   Get latest 10 finished tasks
-
-#### Environments
-
-All options except `--server` are able to be set with environment variable:
-
-| Option          | Environment Variable  |
-| --------------- | --------------------- |
-| `host`          | `ANNIE_HOST`          |
-| `port`          | `ANNIE_PORT`          |
-| `token`         | `ANNIE_TOKEN`         |
-| `debug`         | `ANNIE_DEBUG`         |
-| `silent`        | `ANNIE_SILENT`        |
-| `chunk-size`    | `ANNIE_CHUNK_SIZE`    |
-| `multi-thread`  | `ANNIE_MULTI_THREAD`  |
-| `output-path`   | `ANNIE_OUTPUT_PATH`   |
-| `retry`         | `ANNIE_RETRY`         |
 
 ### Options
 

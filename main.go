@@ -200,6 +200,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "port",
+				Value: "8080",
 				Usage: "Port to listen for web server",
 			},
 			&cli.StringFlag{

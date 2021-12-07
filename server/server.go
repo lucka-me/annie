@@ -3,8 +3,6 @@ package server
 import (
 	"container/list"
 	"net/http"
-	"os"
-	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -33,21 +31,22 @@ type Server struct {
 }
 
 func New(c *cli.Context) *Server {
-	enableDebug := boolFrom(c, "debug", "ANNIE_DEBUG")
+
+	enableDebug := c.Bool("debug")
 	request.SetOptions(request.Options{
 		Debug:  enableDebug,
-		Silent: boolFrom(c, "silent", "ANNIE_SILENT"),
+		Silent: c.Bool("silent"),
 	})
 	server := &Server{
-		chunkSizeMB: uintFrom(c, "chunk-size", "ANNIE_CHUNK_SIZE"),
+		chunkSizeMB: c.Uint("chunk-size"),
 		debug:       enableDebug,
-		multiThread: boolFrom(c, "multi-thread", "ANNIE_MULTI_THREAD"),
-		outputPath:  stringFrom(c, "output-path", "ANNIE_OUTPUT_PATH", ""),
-		retryTimes:  uintFrom(c, "retry", "ANNIE_RETRY"),
+		multiThread: c.Bool("multi-thread"),
+		outputPath:  c.String("output-path"),
+		retryTimes:  c.Uint("retry"),
 
-		host:  stringFrom(c, "host", "ANNIE_HOST", ""),
-		port:  stringFrom(c, "port", "ANNIE_PORT", "8080"),
-		token: stringFrom(c, "token", "ANNIE_TOKEN", ""),
+		host:  c.String("host"),
+		port:  c.String("port"),
+		token: c.String("token"),
 	}
 	return server
 }
@@ -175,36 +174,4 @@ func (s *Server) finish(e *list.Element) {
 	}
 	s.history.PushBack(e.Value.(*AsyncTask).task)
 	s.historyMutext.Unlock()
-}
-
-func boolFrom(c *cli.Context, flag string, env string) bool {
-	value := c.Bool(flag)
-	if !value {
-		_, envSet := os.LookupEnv(env)
-		value = envSet
-	}
-	return value
-}
-
-func stringFrom(c *cli.Context, flag string, env string, def string) string {
-	value := c.String(flag)
-	if value == "" {
-		value = os.Getenv(env)
-	}
-	if value == "" {
-		value = def
-	}
-	return value
-}
-
-func uintFrom(c *cli.Context, flag string, env string) uint {
-	value := c.Uint(flag)
-	if value == 0 {
-		if envValue, envSet := os.LookupEnv(env); envSet {
-			if intValue, err := strconv.Atoi(envValue); err != nil {
-				value = uint(intValue)
-			}
-		}
-	}
-	return value
 }
