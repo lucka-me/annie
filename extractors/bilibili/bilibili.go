@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/iawia002/annie/extractors/types"
 	"github.com/iawia002/annie/parser"
@@ -60,7 +61,7 @@ func genAPI(aid, cid, quality int, bvid string, bangumi bool, cookie string) (st
 		baseAPIURL = bilibiliBangumiAPI
 	} else {
 		params = fmt.Sprintf(
-			"avid=%d&cid=%d&bvid=%s&qn=%d&type=&otype=json&fourk=1&fnver=0&fnval=16",
+			"avid=%d&cid=%d&bvid=%s&qn=%d&type=&otype=json&fourk=1&fnver=0&fnval=2000",
 			aid, cid, bvid, quality,
 		)
 		baseAPIURL = bilibiliAPI
@@ -272,9 +273,9 @@ func bilibiliDownload(options bilibiliOptions, extractOption types.Options) *typ
 	}
 
 	// Get "accept_quality" and "accept_description"
-	// "accept_description":["高清 1080P","高清 720P","清晰 480P","流畅 360P"],
-	// "accept_quality":[120,112,80,48,32,16],
-	api, err := genAPI(options.aid, options.cid, 120, options.bvid, options.bangumi, extractOption.Cookie)
+	// "accept_description":["超高清 8K","超清 4K","高清 1080P+","高清 1080P","高清 720P","清晰 480P","流畅 360P"],
+	// "accept_quality":[127，120,112,80,48,32,16],
+	api, err := genAPI(options.aid, options.cid, 127, options.bvid, options.bangumi, extractOption.Cookie)
 	if err != nil {
 		return types.EmptyData(options.url, err)
 	}
@@ -368,9 +369,14 @@ func bilibiliDownload(options bilibiliOptions, extractOption types.Options) *typ
 		Title:   title,
 		Type:    types.DataTypeVideo,
 		Streams: streams,
-		Caption: &types.Part{
-			URL: fmt.Sprintf("https://comment.bilibili.com/%d.xml", options.cid),
-			Ext: "xml",
+		Captions: map[string]*types.CaptionPart{
+			"danmaku": {
+				Part: types.Part{
+					URL: fmt.Sprintf("https://comment.bilibili.com/%d.xml", options.cid),
+					Ext: "xml",
+				},
+			},
+			"subtitle": getSubTitleCaptionPart(options.aid, options.cid),
 		},
 		URL: options.url,
 	}
@@ -382,4 +388,45 @@ func getExtFromMimeType(mimeType string) string {
 		return exts[1]
 	}
 	return "mp4"
+}
+
+func getSubTitleCaptionPart(aid int, cid int) *types.CaptionPart {
+	jsonString, err := request.Get(
+		fmt.Sprintf("http://api.bilibili.com/x/web-interface/view?aid=%d&cid=%d", aid, cid), referer, nil,
+	)
+	if err != nil {
+		return nil
+	}
+	stu := bilibiliWebInterface{}
+	err = json.Unmarshal([]byte(jsonString), &stu)
+	if err != nil || len(stu.Data.SubtitleInfo.SubtitleList) == 0 {
+		return nil
+	}
+	return &types.CaptionPart{
+		Part: types.Part{
+			URL: stu.Data.SubtitleInfo.SubtitleList[0].SubtitleUrl,
+			Ext: "srt",
+		},
+		Transform: subtitleTransform,
+	}
+
+}
+
+func subtitleTransform(body []byte) ([]byte, error) {
+	bytes := ""
+	captionData := bilibiliSubtitleFormat{}
+	err := json.Unmarshal(body, &captionData)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < len(captionData.Body); i++ {
+		bytes += fmt.Sprintf("%d\n%s --> %s\n%s\n\n",
+			i,
+			time.Unix(0, int64(captionData.Body[i].From*1000)*int64(time.Millisecond)).UTC().Format("15:04:05.000"),
+			time.Unix(0, int64(captionData.Body[i].To*1000)*int64(time.Millisecond)).UTC().Format("15:04:05.000"),
+			captionData.Body[i].Content,
+		)
+	}
+	return []byte(bytes), nil
 }

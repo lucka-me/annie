@@ -71,6 +71,7 @@ type dash struct {
 }
 
 var qualityString = map[int]string{
+	127: "超高清 8K",
 	120: "超清 4K",
 	116: "高清 1080P60",
 	74:  "高清 720P60",
@@ -81,4 +82,42 @@ var qualityString = map[int]string{
 	32:  "清晰 480P",
 	16:  "流畅 360P",
 	15:  "流畅 360P",
+}
+
+type subtitleData struct {
+	From     float32 `json:"from"`
+	To       float32 `json:"to"`
+	Location int     `json:"location"`
+	Content  string  `json:"content"`
+}
+
+type bilibiliSubtitleFormat struct {
+	FontSize        float32        `json:"font_size"`
+	FontColor       string         `json:"font_color"`
+	BackgroundAlpha float32        `json:"background_alpha"`
+	BackgroundColor string         `json:"background_color"`
+	Stroke          string         `json:"Stroke"`
+	Body            []subtitleData `json:"body"`
+}
+
+type subtitleProperty struct {
+	ID          int64  `json:"id"`
+	Lan         string `json:"lan"`
+	LanDoc      string `json:"lan_doc"`
+	SubtitleUrl string `json:"subtitle_url"`
+}
+
+type subtitleInfo struct {
+	AllowSubmit  bool               `json:"allow_submit"`
+	SubtitleList []subtitleProperty `json:"list"`
+}
+
+type bilibiliWebInterfaceData struct {
+	Bvid         string       `json:"bvid"`
+	SubtitleInfo subtitleInfo `json:"subtitle"`
+}
+
+type bilibiliWebInterface struct {
+	Code int                      `json:"code"`
+	Data bilibiliWebInterfaceData `json:"data"`
 }
