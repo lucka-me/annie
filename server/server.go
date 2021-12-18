@@ -19,6 +19,7 @@ type Server struct {
 	multiThread bool
 	outputPath  string
 	retryTimes  uint
+	silent      bool
 
 	host  string
 	port  string
@@ -31,11 +32,11 @@ type Server struct {
 }
 
 func New(c *cli.Context) *Server {
-
 	enableDebug := c.Bool("debug")
+	enableSilent := c.Bool("silent")
 	request.SetOptions(request.Options{
 		Debug:  enableDebug,
-		Silent: c.Bool("silent"),
+		Silent: enableSilent,
 	})
 	server := &Server{
 		chunkSizeMB: c.Uint("chunk-size"),
@@ -43,6 +44,7 @@ func New(c *cli.Context) *Server {
 		multiThread: c.Bool("multi-thread"),
 		outputPath:  c.String("output-path"),
 		retryTimes:  c.Uint("retry"),
+		silent:      enableSilent,
 
 		host:  c.String("host"),
 		port:  c.String("port"),
@@ -138,6 +140,7 @@ func (s *Server) download(t Task) {
 		OutputPath:  s.outputPath,
 		Refer:       t.Refer,
 		RetryTimes:  int(s.retryTimes),
+		Silent:      s.silent,
 		Stream:      t.StreamFormat,
 	})
 	failureCount := 0
